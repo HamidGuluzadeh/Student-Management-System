@@ -17,6 +17,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -44,11 +46,19 @@ public class StudentServiceImpl implements StudentService {
     @Override
     @Transactional
     public StudentResponse createStudent(StudentRequest request) {
-        validateRequest(request);
+        if (!Objects.isNull(request.phoneNumber()) && studentRepository.existsByPhoneNumber(request.phoneNumber())) {
+            throw new ResourceAlreadyExistsException("Phone number already exists!");
+        }
+
+        if (!Objects.isNull(request.email()) && studentRepository.existsByEmail(request.email())) {
+            throw new ResourceAlreadyExistsException("Email already exists!");
+        }
 
         StudentEntity studentEntity = studentMapper.mapRequestToEntity(request);
 
-        return studentMapper.mapEntityToResponse(studentEntity);
+        StudentEntity savedEntity = studentRepository.save(studentEntity);
+
+        return studentMapper.mapEntityToResponse(savedEntity);
     }
 
     @Override
@@ -57,11 +67,11 @@ public class StudentServiceImpl implements StudentService {
         StudentEntity studentEntity = studentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found!"));
 
-        validateRequest(request);
-
         studentMapper.updateEntityFromRequest(request, studentEntity);
 
-        return studentMapper.mapEntityToResponse(studentEntity);
+        StudentEntity savedEntity = studentRepository.save(studentEntity);
+
+        return studentMapper.mapEntityToResponse(savedEntity);
     }
 
     @Override
@@ -72,19 +82,5 @@ public class StudentServiceImpl implements StudentService {
         }
 
         studentRepository.deleteById(id);
-    }
-
-    private void validateRequest(StudentRequest request) {
-        if (studentRepository.existsByStudentNumber(request.studentNumber())) {
-            throw new ResourceAlreadyExistsException("Student " + request.studentNumber() + " already exists");
-        }
-
-        if (studentRepository.existsByPhoneNumber(request.phoneNumber())) {
-            throw new ResourceAlreadyExistsException("Phone number already exists!");
-        }
-
-        if (studentRepository.existsByEmail(request.email())) {
-            throw new ResourceAlreadyExistsException("Email already exists!");
-        }
     }
 }

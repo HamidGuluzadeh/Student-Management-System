@@ -1,6 +1,7 @@
 package com.auspify_tech.student_management_system.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
@@ -25,7 +26,7 @@ public record StudentRequest(@NotBlank(message = "Student number cannot be empty
                              @NotBlank(message = "Major cannot be empty!")
                              @Size(max = 60, message = "Major cannot exceed 60 characters!")
                              String major,
-                             @NotBlank(message = "Enrollment date cannot be empty!")
+                             @NotNull(message = "Enrollment date cannot be empty!")
                              LocalDate enrollmentDate) {
 
 }

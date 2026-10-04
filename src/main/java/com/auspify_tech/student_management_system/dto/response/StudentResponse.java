@@ -6,7 +6,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 @Builder
-public record StudentResponse(String studentNumber,
+public record StudentResponse(String id,
+                              String studentNumber,
                               String firstName,
                               String lastName,
                               String phoneNumber,

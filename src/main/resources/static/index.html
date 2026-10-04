@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container my-5">
+    <h2 class="text-center mb-4">🎓 Student Management System</h2>
+
+    <div id="alertBox"></div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white" id="formTitle">Add New Student</div>
+        <div class="card-body">
+            <form id="studentForm">
+                <input type="hidden" id="studentId">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Student Number (10 chars)</label>
+                        <input type="text" id="studentNumber" class="form-control" required minlength="10" maxlength="10">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">First Name</label>
+                        <input type="text" id="firstName" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" id="lastName" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" id="phoneNumber" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="email" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Major</label>
+                        <input type="text" id="major" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Enrollment Date</label>
+                        <input type="date" id="enrollmentDate" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-success" id="saveBtn">Save Student</button>
+                    <button type="button" class="btn btn-secondary d-none" id="cancelBtn" onclick="resetForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">Student List</div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                    <tr>
+                        <th>Student №</th>
+                        <th>Full Name</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Major</th>
+                        <th>Enrollment Date</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="studentTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <button class="btn btn-outline-primary btn-sm" id="prevBtn" onclick="changePage(-1)">Previous</button>
+                <span id="pageInfo" class="fw-bold"></span>
+                <button class="btn btn-outline-primary btn-sm" id="nextBtn" onclick="changePage(1)">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BASE_URL = '/student-service/api/v1/students';
+    let currentPage = 0;
+    const pageSize = 10;
+    let totalPages = 0;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStudents(currentPage);
+
+        document.getElementById('studentForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            saveStudent();
+        });
+    });
+
+    function loadStudents(page) {
+        fetch(`${BASE_URL}/all?page=${page}&size=${pageSize}`)
+            .then(res => res.json())
+            .then(data => {
+                totalPages = data.totalPages;
+                currentPage = data.number;
+                renderTable(data.content);
+                updatePagination();
+            })
+            .catch(err => showAlert('Failed to load students', 'danger'));
+    }
+
+    function renderTable(students) {
+        const tbody = document.getElementById('studentTableBody');
+        tbody.innerHTML = '';
+
+        if (students.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No data available</td></tr>';
+            return;
+        }
+
+        students.forEach(student => {
+            tbody.innerHTML += `
+            <tr>
+                <td><strong>${student.studentNumber}</strong></td>
+                <td>${student.firstName} ${student.lastName}</td>
+                <td>${student.phoneNumber}</td>
+                <td>${student.email || '-'}</td>
+                <td>${student.major}</td>
+                <td>${student.enrollmentDate}</td>
+                <td>
+                    <button class="btn btn-warning btn-sm me-1" onclick="editStudent(${student.id}, '${student.studentNumber}', '${student.firstName}', '${student.lastName}', '${student.phoneNumber}', '${student.email || ''}', '${student.major}', '${student.enrollmentDate}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteStudent(${student.id})">Delete</button>
+                </td>
+            </tr>
+        `;
+        });
+    }
+
+    function saveStudent() {
+        const id = document.getElementById('studentId').value;
+        const payload = {
+            studentNumber: document.getElementById('studentNumber').value,
+            firstName: document.getElementById('firstName').value,
+            lastName: document.getElementById('lastName').value,
+            phoneNumber: document.getElementById('phoneNumber').value,
+            email: document.getElementById('email').value,
+            major: document.getElementById('major').value,
+            enrollmentDate: document.getElementById('enrollmentDate').value
+        };
+
+        const isUpdate = id !== '';
+        const url = isUpdate ? `${BASE_URL}/${id}` : `${BASE_URL}/new`;
+        const method = isUpdate ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(async response => {
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.message || 'Operation failed');
+                }
+                return response.json();
+            })
+            .then(() => {
+                showAlert(isUpdate ? 'Student updated successfully' : 'Student added successfully', 'success');
+                resetForm();
+                loadStudents(currentPage);
+            })
+            .catch(err => showAlert(err.message, 'danger'));
+    }
+
+    function deleteStudent(id) {
+        if (confirm('Are you sure you want to delete this student?')) {
+            fetch(`${BASE_URL}/${id}`, { method: 'DELETE' })
+                .then(res => {
+                    if (res.ok) {
+                        showAlert('Student deleted successfully', 'warning');
+                        loadStudents(currentPage);
+                    } else {
+                        showAlert('An error occurred while deleting', 'danger');
+                    }
+                });
+        }
+    }
+
+    function editStudent(id, number, first, last, phone, email, major, date) {
+        document.getElementById('studentId').value = id;
+        document.getElementById('studentNumber').value = number;
+        document.getElementById('firstName').value = first;
+        document.getElementById('lastName').value = last;
+        document.getElementById('phoneNumber').value = phone;
+        document.getElementById('email').value = email;
+        document.getElementById('major').value = major;
+        document.getElementById('enrollmentDate').value = date;
+
+        document.getElementById('formTitle').innerText = 'Update Student Information';
+        document.getElementById('saveBtn').innerText = 'Update Student';
+        document.getElementById('cancelBtn').classList.remove('d-none');
+    }
+
+    function resetForm() {
+        document.getElementById('studentForm').reset();
+        document.getElementById('studentId').value = '';
+        document.getElementById('formTitle').innerText = 'Add New Student';
+        document.getElementById('saveBtn').innerText = 'Save Student';
+        document.getElementById('cancelBtn').classList.add('d-none');
+    }
+
+    function updatePagination() {
+        document.getElementById('pageInfo').innerText = `Page ${currentPage + 1} / ${totalPages || 1}`;
+        document.getElementById('prevBtn').disabled = currentPage === 0;
+        document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1 || totalPages === 0;
+    }
+
+    function changePage(direction) {
+        currentPage += direction;
+        loadStudents(currentPage);
+    }
+
+    function showAlert(msg, type) {
+        const alertBox = document.getElementById('alertBox');
+        alertBox.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
